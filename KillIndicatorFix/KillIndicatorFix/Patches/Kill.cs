@@ -6,7 +6,7 @@ using Enemies;
 using Agents;
 using static UnityEngine.UI.GridLayoutGroup;
 
-namespace BetterHitMarkers.Patches
+namespace KillIndicatorFix.Patches
 {
     /*
      * Tracks HP seperately rather than using client side __instance.Health since I'm unsure if messing with that will change client behaviour.

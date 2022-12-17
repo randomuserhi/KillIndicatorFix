@@ -3,7 +3,7 @@
 using GameData;
 using UnityEngine.Analytics;
 
-namespace BetterHitMarkers.Patches
+namespace KillIndicatorFix.Patches
 {
     [HarmonyPatch(typeof(GameDataInit))]
     internal class GameDataInit_Patches

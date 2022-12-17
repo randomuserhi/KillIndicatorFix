@@ -5,10 +5,10 @@ using HarmonyLib;
 using UnityEngine;
 
 using API;
-using BetterHitMarkers.Patches;
+using KillIndicatorFix.Patches;
 using Player;
 
-namespace BetterHitMarkers
+namespace KillIndicatorFix
 {
     public static class Module
     {
