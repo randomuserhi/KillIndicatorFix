@@ -19,11 +19,13 @@ namespace KillIndicatorFix.Patches
         {
             public float hp;
             public long timestamp;
+            public Vector3 localHitPosition; // Store local position to prevent desync when enemy moves
 
-            public tag(float hp, long timestamp)
+            public tag(float hp, long timestamp, Vector3 localHitPosition)
             {
                 this.hp = hp;
                 this.timestamp = timestamp;
+                this.localHitPosition = localHitPosition;
             }
         }
 
@@ -73,7 +75,7 @@ namespace KillIndicatorFix.Patches
                     APILogger.Debug(Module.Name, $"Received kill update {now - t.timestamp} milliseconds after tag.");
 #endif
 
-                    if (now - t.timestamp < 1000)
+                    if (now - t.timestamp < 1000) // TODO:: move this value to a config file, 1500 ms is generous, 1000 ms is probably most practical
                     {
                         if (!markers.ContainsKey(instanceID))
                         {
@@ -82,7 +84,8 @@ namespace KillIndicatorFix.Patches
 #endif
 
                             enabled = true;
-                            GuiManager.CrosshairLayer?.ShowDeathIndicator(owner.EyePosition);
+                            //GuiManager.CrosshairLayer?.ShowDeathIndicator(owner.EyePosition);
+                            GuiManager.CrosshairLayer?.ShowDeathIndicator(owner.transform.position + t.localHitPosition);
                             enabled = false;
                         }
                         else
@@ -113,8 +116,9 @@ namespace KillIndicatorFix.Patches
             // Apply damage modifiers (head, occiput etc...)
             float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.ProjectileResistance, Mathf.Clamp(dam, 0, __instance.HealthMax));
 
-            if (taggedEnemies.ContainsKey(instanceID)) taggedEnemies[instanceID] = new tag(taggedEnemies[instanceID].hp - num, now);
-            else taggedEnemies.Add(instanceID, new tag(__instance.HealthMax - num, now));
+            Vector3 localHit = position - owner.transform.position;
+            if (taggedEnemies.ContainsKey(instanceID)) taggedEnemies[instanceID] = new tag(taggedEnemies[instanceID].hp - num, now, localHit);
+            else taggedEnemies.Add(instanceID, new tag(__instance.HealthMax - num, now, localHit));
 
 #if DEBUG
             APILogger.Debug(Module.Name, $"Bullet Damage: {num}");
@@ -138,8 +142,9 @@ namespace KillIndicatorFix.Patches
             // Apply damage modifiers (head, occiput etc...)
             float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.MeleeResistance, Mathf.Clamp(dam, 0, __instance.DamageMax));
 
-            if (taggedEnemies.ContainsKey(instanceID)) taggedEnemies[instanceID] = new tag(taggedEnemies[instanceID].hp - num, now); 
-            else taggedEnemies.Add(instanceID, new tag(__instance.HealthMax - num, now));
+            Vector3 localHit = position - owner.transform.position;
+            if (taggedEnemies.ContainsKey(instanceID)) taggedEnemies[instanceID] = new tag(taggedEnemies[instanceID].hp - num, now, localHit); 
+            else taggedEnemies.Add(instanceID, new tag(__instance.HealthMax - num, now, localHit));
 
 #if DEBUG
             APILogger.Debug(Module.Name, $"Melee Damage: {num}");
