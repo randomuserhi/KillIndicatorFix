@@ -19,7 +19,7 @@ namespace KillIndicatorFix.Patches
         {
             public float hp;
             public long timestamp;
-            public Vector3 localHitPosition; // Store local position to prevent desync when enemy moves
+            public Vector3 localHitPosition; // Store local position to prevent desync when enemy moves since hit position is relative to world not enemy.
 
             public tag(float hp, long timestamp, Vector3 localHitPosition)
             {
