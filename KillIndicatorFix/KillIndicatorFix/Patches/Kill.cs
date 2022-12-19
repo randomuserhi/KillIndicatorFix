@@ -77,6 +77,8 @@ namespace KillIndicatorFix.Patches
         [HarmonyPrefix]
         public static void OnDead(EnemyAppearance __instance)
         {
+            if (SNetwork.SNet.IsMaster) return;
+
 #if DEBUG
             APILogger.Debug(Module.Name, "EnemyAppearance.OnDead");
 #endif
