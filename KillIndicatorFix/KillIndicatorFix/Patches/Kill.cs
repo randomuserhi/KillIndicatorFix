@@ -8,6 +8,8 @@ using Enemies;
 using Agents;
 using static UnityEngine.UI.GridLayoutGroup;
 
+// TODO:: Add config value for delay allowed between client hit marker and server
+
 namespace KillIndicatorFix.Patches
 {
     /*
@@ -61,7 +63,7 @@ namespace KillIndicatorFix.Patches
 
             // Prevents the case where client fails to receive kill confirm from host so marker persists in dictionary
             // - Auto removes the marker if it has existed for longer than 3 seconds
-            // TODO:: maybe make the time be some multiple or constant larger than tag timer specified at line 97,
+            // TODO:: maybe make the time be some multiple or constant larger than tag timer specified at line 101,
             //        this way the config only needs 1 variable and its easier to understand.
             int[] keys = markers.Keys.ToArray();
             foreach (int id in keys)
