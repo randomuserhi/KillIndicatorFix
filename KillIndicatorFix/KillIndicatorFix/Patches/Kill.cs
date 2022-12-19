@@ -1,4 +1,6 @@
-﻿using UnityEngine;
+﻿#define DEBUG
+
+using UnityEngine;
 using HarmonyLib;
 
 using API;
@@ -34,6 +36,16 @@ namespace KillIndicatorFix.Patches
 
         private static bool enabled = false;
 
+        public static void OnRundownStart()
+        {
+#if DEBUG
+            APILogger.Debug(Module.Name, "OnRundownStart => Reset Trackers and Markers.");
+#endif
+
+            markers.Clear();
+            taggedEnemies.Clear();
+        }
+
         private static void ShowKillMarker(int instanceID, Vector3 position)
         {
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
@@ -47,6 +59,10 @@ namespace KillIndicatorFix.Patches
                 markers.Add(instanceID, now);
             }
 
+            // Prevents the case where client fails to receive kill confirm from host so marker persists in dictionary
+            // - Auto removes the marker if it has existed for longer than 3 seconds
+            // TODO:: maybe make the time be some multiple or constant larger than tag timer specified at line 97,
+            //        this way the config only needs 1 variable and its easier to understand.
             int[] keys = markers.Keys.ToArray();
             foreach (int id in keys)
             {
@@ -54,6 +70,9 @@ namespace KillIndicatorFix.Patches
             }
         }
 
+        // TODO:: Change the method of detecting when an enemy dies via network => Either dont use EnemyAppearance and look at what SNet things GTFO uses (refer to GTFO-API Network Receive Hooks) or look
+        //        at the proper OnDead event triggers etc (see how to avoid triggering it on head limb kill)
+        //        Maybe look at ES_Dead or ES_DeadBase (probs ES_Dead => needs more testing)
         [HarmonyPatch(typeof(EnemyAppearance), nameof(EnemyAppearance.OnDead))]
         [HarmonyPrefix]
         public static void OnDead(EnemyAppearance __instance)
@@ -96,6 +115,9 @@ namespace KillIndicatorFix.Patches
                             markers.Remove(instanceID);
                         }
                     }
+#if DEBUG
+                    else APILogger.Debug(Module.Name, $"Client was no longer interested in this enemy, marker will not be shown.");
+#endif
 
                     taggedEnemies.Remove(instanceID);
                 }
@@ -114,6 +136,7 @@ namespace KillIndicatorFix.Patches
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
             // Apply damage modifiers (head, occiput etc...)
+            // TODO:: Confirmation / Testing on whether these damage numbers work for Tanks and Mother blobs (They are capped by Blob HP)
             float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.ProjectileResistance, Mathf.Clamp(dam, 0, __instance.HealthMax));
 
             Vector3 localHit = position - owner.transform.position;
@@ -140,6 +163,7 @@ namespace KillIndicatorFix.Patches
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
             // Apply damage modifiers (head, occiput etc...)
+            // TODO:: Confirmation / Testing on whether these damage numbers work for Tanks and Mother blobs (They are capped by Blob HP)
             float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.MeleeResistance, Mathf.Clamp(dam, 0, __instance.DamageMax));
 
             Vector3 localHit = position - owner.transform.position;

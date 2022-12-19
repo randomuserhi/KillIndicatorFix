@@ -25,6 +25,8 @@ namespace KillIndicatorFix
             APILogger.Debug(Module.Name, "Loaded KillIndicatorFix");
             harmony = new Harmony(Module.GUID);
             harmony.PatchAll();
+
+            RundownManager.add_OnExpeditionGameplayStarted((Action)KillIndicatorFix.Patches.Kill.OnRundownStart);
         }
 
         private Harmony harmony;
