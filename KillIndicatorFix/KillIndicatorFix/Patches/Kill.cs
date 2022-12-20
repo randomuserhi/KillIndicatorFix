@@ -180,6 +180,7 @@ namespace KillIndicatorFix.Patches
                 ShowKillMarker(instanceID, position);
         }
 
+        // TODO:: possibly change this to not be a "bool" type prefix patch to allow other mods to patch this method.
         [HarmonyPatch(typeof(CrosshairGuiLayer), nameof(CrosshairGuiLayer.ShowDeathIndicator))]
         [HarmonyPrefix]
         public static bool ShowDeathIndicator()
