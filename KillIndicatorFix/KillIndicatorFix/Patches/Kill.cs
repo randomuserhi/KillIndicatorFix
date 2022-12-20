@@ -18,13 +18,11 @@ namespace KillIndicatorFix.Patches
     {
         private struct tag
         {
-            public float hp;
             public long timestamp;
             public Vector3 localHitPosition; // Store local position to prevent desync when enemy moves since hit position is relative to world not enemy.
 
-            public tag(float hp, long timestamp, Vector3 localHitPosition)
+            public tag(long timestamp, Vector3 localHitPosition)
             {
-                this.hp = hp;
                 this.timestamp = timestamp;
                 this.localHitPosition = localHitPosition;
             }
@@ -32,8 +30,6 @@ namespace KillIndicatorFix.Patches
 
         private static Dictionary<int, tag> taggedEnemies = new Dictionary<int, tag>();
         private static Dictionary<int, long> markers = new Dictionary<int, long>();
-
-        private static bool enabled = false;
 
         public static void OnRundownStart()
         {
@@ -43,30 +39,6 @@ namespace KillIndicatorFix.Patches
 
             markers.Clear();
             taggedEnemies.Clear();
-        }
-
-        private static void ShowKillMarker(int instanceID, Vector3 position)
-        {
-            long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
-
-            if (!markers.ContainsKey(instanceID))
-            {
-                enabled = true;
-                GuiManager.CrosshairLayer?.ShowDeathIndicator(position);
-                enabled = false;
-
-                markers.Add(instanceID, now);
-            }
-
-            // Prevents the case where client fails to receive kill confirm from host so marker persists in dictionary
-            // - Auto removes the marker if it has existed for longer than 3 seconds
-            // TODO:: maybe make the time be some multiple or constant larger than tag timer specified at line 101,
-            //        this way the config only needs 1 variable and its easier to understand.
-            int[] keys = markers.Keys.ToArray();
-            foreach (int id in keys)
-            {
-                if (now - markers[id] > 3000) markers.Remove(id);
-            }
         }
 
         // TODO:: Change the method of detecting when an enemy dies via network => Either dont use EnemyAppearance and look at what SNet things GTFO uses (refer to GTFO-API Network Receive Hooks) or look
@@ -92,10 +64,13 @@ namespace KillIndicatorFix.Patches
                     tag t = taggedEnemies[instanceID];
 
 #if DEBUG
-                    APILogger.Debug(Module.Name, $"Received kill update {now - t.timestamp} milliseconds after tag.");
+                    if (t.timestamp <= now)
+                        APILogger.Debug(Module.Name, $"Received kill update {now - t.timestamp} milliseconds after tag.");
+                    else 
+                        APILogger.Debug(Module.Name, $"Received kill update for enemy that was tagged in the future? Possibly long overflow...");
 #endif
 
-                    if (now - t.timestamp < 1000) // TODO:: move this value to a config file, 1500 ms is generous, 1000 ms is probably most practical
+                    if (t.timestamp <= now && now - t.timestamp < 1000) // TODO:: move this value to a config file, 1500 ms is generous, 1000 ms is probably most practical
                     {
                         if (!markers.ContainsKey(instanceID))
                         {
@@ -103,10 +78,8 @@ namespace KillIndicatorFix.Patches
                             APILogger.Debug(Module.Name, $"Client side marker was not shown, showing server side one.");
 #endif
 
-                            enabled = true;
                             //GuiManager.CrosshairLayer?.ShowDeathIndicator(owner.EyePosition);
                             GuiManager.CrosshairLayer?.ShowDeathIndicator(owner.transform.position + t.localHitPosition);
-                            enabled = false;
                         }
                         else
                         {
@@ -137,20 +110,18 @@ namespace KillIndicatorFix.Patches
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
             // Apply damage modifiers (head, occiput etc...)
-            // TODO:: Confirmation / Testing on whether these damage numbers work for Tanks and Mother blobs (They are capped by Blob HP)
             float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.ProjectileResistance, Mathf.Clamp(dam, 0, __instance.HealthMax));
+            __instance.Health -= num;
 
             Vector3 localHit = position - owner.transform.position;
-            if (taggedEnemies.ContainsKey(instanceID)) taggedEnemies[instanceID] = new tag(taggedEnemies[instanceID].hp - num, now, localHit);
-            else taggedEnemies.Add(instanceID, new tag(__instance.HealthMax - num, now, localHit));
+            tag t = new tag(now, localHit);
+            if (taggedEnemies.ContainsKey(instanceID)) taggedEnemies[instanceID] = t;
+            else taggedEnemies.Add(instanceID, t);
 
 #if DEBUG
             APILogger.Debug(Module.Name, $"Bullet Damage: {num}");
-            APILogger.Debug(Module.Name, $"Tracked current HP: {taggedEnemies[instanceID].hp}, [{owner.GetInstanceID()}]");
+            APILogger.Debug(Module.Name, $"Tracked current HP: {__instance.Health}, [{owner.GetInstanceID()}]");
 #endif
-
-            if (taggedEnemies[instanceID].hp <= 0)
-                ShowKillMarker(instanceID, position);
         }
 
         [HarmonyPatch(typeof(Dam_EnemyDamageBase), nameof(Dam_EnemyDamageBase.MeleeDamage))]
@@ -166,26 +137,45 @@ namespace KillIndicatorFix.Patches
             // Apply damage modifiers (head, occiput etc...)
             // TODO:: Confirmation / Testing on whether these damage numbers work for Tanks and Mother blobs (They are capped by Blob HP)
             float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.MeleeResistance, Mathf.Clamp(dam, 0, __instance.DamageMax));
+            __instance.Health -= num;
 
             Vector3 localHit = position - owner.transform.position;
-            if (taggedEnemies.ContainsKey(instanceID)) taggedEnemies[instanceID] = new tag(taggedEnemies[instanceID].hp - num, now, localHit); 
-            else taggedEnemies.Add(instanceID, new tag(__instance.HealthMax - num, now, localHit));
+            tag t = new tag(now, localHit);
+            if (taggedEnemies.ContainsKey(instanceID)) taggedEnemies[instanceID] = t; 
+            else taggedEnemies.Add(instanceID, t);
 
 #if DEBUG
             APILogger.Debug(Module.Name, $"Melee Damage: {num}");
-            APILogger.Debug(Module.Name, $"Tracked current HP: {taggedEnemies[instanceID].hp}, [{owner.GetInstanceID()}]");
+            APILogger.Debug(Module.Name, $"Tracked current HP: {__instance.Health}, [{owner.GetInstanceID()}]");
 #endif
-
-            if (taggedEnemies[instanceID].hp <= 0)
-                ShowKillMarker(instanceID, position);
         }
 
-        // TODO:: possibly change this to not be a "bool" type prefix patch to allow other mods to patch this method.
-        [HarmonyPatch(typeof(CrosshairGuiLayer), nameof(CrosshairGuiLayer.ShowDeathIndicator))]
+        [HarmonyPatch(typeof(Dam_EnemyDamageLimb), nameof(Dam_EnemyDamageLimb.ShowHitIndicator))]
         [HarmonyPrefix]
-        public static bool ShowDeathIndicator()
+        public static void ShowDeathIndicator(Dam_EnemyDamageLimb __instance, bool hitWeakspot, bool willDie, Vector3 position, bool hitArmor)
         {
-            return SNetwork.SNet.IsMaster || enabled;
+            EnemyAgent owner = __instance.m_base.Owner;
+            int instanceID = owner.GetInstanceID();
+            long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
+
+            // Prevents the case where client fails to receive kill confirm from host so marker persists in dictionary
+            // - Auto removes the marker if it has existed for longer than 3 seconds
+            // TODO:: maybe make the time be some multiple or constant larger than tag timer specified at line 101,
+            //        this way the config only needs 1 variable and its easier to understand.
+            int[] keys = markers.Keys.ToArray();
+            foreach (int id in keys)
+            {
+                if (now - markers[id] > 3000) markers.Remove(id);
+            }
+
+            // Only call if GuiManager.CrosshairLayer.ShowDeathIndicator(position); is going to get called (condition is taken from source)
+            if (willDie && !__instance.m_base.DeathIndicatorShown)
+            {
+                if (!markers.ContainsKey(instanceID)) markers.Add(instanceID, now);
+#if DEBUG
+                else APILogger.Debug(Module.Name, $"Marker for enemy was already shown. This should not happen.");
+#endif
+            }
         }
     }
 }

@@ -14,7 +14,7 @@ namespace KillIndicatorFix
     {
         public const string GUID = "randomuserhi.KillIndicatorFix";
         public const string Name = "KillIndicatorFix";
-        public const string Version = "0.0.3";
+        public const string Version = "0.0.4";
     }
 
     [BepInPlugin(Module.GUID, Module.Name, Module.Version)]
