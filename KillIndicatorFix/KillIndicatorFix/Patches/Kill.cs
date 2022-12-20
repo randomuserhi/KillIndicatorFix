@@ -1,12 +1,9 @@
-﻿#define DEBUG
-
-using UnityEngine;
+﻿using UnityEngine;
 using HarmonyLib;
 
 using API;
 using Enemies;
 using Agents;
-using static UnityEngine.UI.GridLayoutGroup;
 
 // TODO:: Add config value for delay allowed between client hit marker and server
 
