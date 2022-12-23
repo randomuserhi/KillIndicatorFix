@@ -33,9 +33,7 @@ namespace KillIndicatorFix.Patches
 
         public static void OnRundownStart()
         {
-#if DEBUG
-            APILogger.Debug(Module.Name, "OnRundownStart => Reset Trackers and Markers.");
-#endif
+            if (ConfigManager.Debug) APILogger.Debug(Module.Name, "OnRundownStart => Reset Trackers and Markers.");
 
             markers.Clear();
             taggedEnemies.Clear();
@@ -50,9 +48,8 @@ namespace KillIndicatorFix.Patches
         {
             if (SNetwork.SNet.IsMaster) return;
 
-#if DEBUG
-            APILogger.Debug(Module.Name, "EnemyAppearance.OnDead");
-#endif
+            if (ConfigManager.Debug) APILogger.Debug(Module.Name, "EnemyAppearance.OnDead");
+
             try
             {
                 EnemyAgent owner = __instance.m_owner;
@@ -63,35 +60,29 @@ namespace KillIndicatorFix.Patches
                 {
                     tag t = taggedEnemies[instanceID];
 
-#if DEBUG
-                    if (t.timestamp <= now)
-                        APILogger.Debug(Module.Name, $"Received kill update {now - t.timestamp} milliseconds after tag.");
-                    else 
-                        APILogger.Debug(Module.Name, $"Received kill update for enemy that was tagged in the future? Possibly long overflow...");
-#endif
+                    if (ConfigManager.Debug)
+                        if (t.timestamp <= now)
+                            APILogger.Debug(Module.Name, $"Received kill update {now - t.timestamp} milliseconds after tag.");
+                        else 
+                            APILogger.Debug(Module.Name, $"Received kill update for enemy that was tagged in the future? Possibly long overflow...");
 
-                    if (t.timestamp <= now && now - t.timestamp < 1000) // TODO:: move this value to a config file, 1500 ms is generous, 1000 ms is probably most practical
+                    if (t.timestamp <= now && now - t.timestamp < ConfigManager.TagBufferPeriod) // TODO:: move this value to a config file, 1500 ms is generous, 1000 ms is probably most practical
                     {
                         if (!markers.ContainsKey(instanceID))
                         {
-#if DEBUG
-                            APILogger.Debug(Module.Name, $"Client side marker was not shown, showing server side one.");
-#endif
+                            if (ConfigManager.Debug) APILogger.Debug(Module.Name, $"Client side marker was not shown, showing server side one.");
 
                             //GuiManager.CrosshairLayer?.ShowDeathIndicator(owner.EyePosition);
                             GuiManager.CrosshairLayer?.ShowDeathIndicator(owner.transform.position + t.localHitPosition);
                         }
                         else
                         {
-#if DEBUG
-                            APILogger.Debug(Module.Name, $"Client side marker was shown, not showing server side one.");
-#endif
+                            if (ConfigManager.Debug) APILogger.Debug(Module.Name, $"Client side marker was shown, not showing server side one.");
+
                             markers.Remove(instanceID);
                         }
                     }
-#if DEBUG
-                    else APILogger.Debug(Module.Name, $"Client was no longer interested in this enemy, marker will not be shown.");
-#endif
+                    else if (ConfigManager.Debug) APILogger.Debug(Module.Name, $"Client was no longer interested in this enemy, marker will not be shown.");
 
                     taggedEnemies.Remove(instanceID);
                 }
@@ -118,10 +109,11 @@ namespace KillIndicatorFix.Patches
             if (taggedEnemies.ContainsKey(instanceID)) taggedEnemies[instanceID] = t;
             else taggedEnemies.Add(instanceID, t);
 
-#if DEBUG
-            APILogger.Debug(Module.Name, $"Bullet Damage: {num}");
-            APILogger.Debug(Module.Name, $"Tracked current HP: {__instance.Health}, [{owner.GetInstanceID()}]");
-#endif
+            if (ConfigManager.Debug)
+            {
+                APILogger.Debug(Module.Name, $"Bullet Damage: {num}");
+                APILogger.Debug(Module.Name, $"Tracked current HP: {__instance.Health}, [{owner.GetInstanceID()}]");
+            }
         }
 
         [HarmonyPatch(typeof(Dam_EnemyDamageBase), nameof(Dam_EnemyDamageBase.MeleeDamage))]
@@ -144,10 +136,11 @@ namespace KillIndicatorFix.Patches
             if (taggedEnemies.ContainsKey(instanceID)) taggedEnemies[instanceID] = t; 
             else taggedEnemies.Add(instanceID, t);
 
-#if DEBUG
-            APILogger.Debug(Module.Name, $"Melee Damage: {num}");
-            APILogger.Debug(Module.Name, $"Tracked current HP: {__instance.Health}, [{owner.GetInstanceID()}]");
-#endif
+            if (ConfigManager.Debug)
+            {
+                APILogger.Debug(Module.Name, $"Melee Damage: {num}");
+                APILogger.Debug(Module.Name, $"Tracked current HP: {__instance.Health}, [{owner.GetInstanceID()}]");
+            }
         }
 
         [HarmonyPatch(typeof(Dam_EnemyDamageLimb), nameof(Dam_EnemyDamageLimb.ShowHitIndicator))]
@@ -165,7 +158,7 @@ namespace KillIndicatorFix.Patches
             int[] keys = markers.Keys.ToArray();
             foreach (int id in keys)
             {
-                if (now - markers[id] > 3000) markers.Remove(id);
+                if (now - markers[id] > ConfigManager.MarkerLifeTime) markers.Remove(id);
             }
 
             // Only call if GuiManager.CrosshairLayer.ShowDeathIndicator(position); is going to get called (condition is taken from source)

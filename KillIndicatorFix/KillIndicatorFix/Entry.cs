@@ -14,7 +14,7 @@ namespace KillIndicatorFix
     {
         public const string GUID = "randomuserhi.KillIndicatorFix";
         public const string Name = "KillIndicatorFix";
-        public const string Version = "0.0.4";
+        public const string Version = "0.0.5";
     }
 
     [BepInPlugin(Module.GUID, Module.Name, Module.Version)]
@@ -25,6 +25,8 @@ namespace KillIndicatorFix
             APILogger.Debug(Module.Name, "Loaded KillIndicatorFix");
             harmony = new Harmony(Module.GUID);
             harmony.PatchAll();
+
+            APILogger.Debug(Module.Name, "Debug is " + (ConfigManager.Debug ? "Enabled" : "Disabled"));
 
             RundownManager.add_OnExpeditionGameplayStarted((Action)KillIndicatorFix.Patches.Kill.OnRundownStart);
         }
