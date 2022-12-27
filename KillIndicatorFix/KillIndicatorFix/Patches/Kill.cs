@@ -4,6 +4,8 @@ using HarmonyLib;
 using API;
 using Enemies;
 using Agents;
+using Player;
+using PlayFab.ClientModels;
 
 // TODO:: Add config value for delay allowed between client hit marker and server
 
@@ -95,9 +97,16 @@ namespace KillIndicatorFix.Patches
         public static void BulletDamage(Dam_EnemyDamageBase __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, bool allowDirectionalBonus, int limbID, float precisionMulti)
         {
             if (SNetwork.SNet.IsMaster) return;
+            PlayerAgent p = sourceAgent.TryCast<PlayerAgent>();
+            if (p == null) // Check damage was done by a player
+            {
+                if (ConfigManager.Debug) APILogger.Debug(Module.Name, $"Could not find PlayerAgent, damage was done by agent of type: {sourceAgent.m_type.ToString()}.");
+                return;
+            }
+            if (p.Owner.IsBot) return; // Check player isnt a bot
 
             EnemyAgent owner = __instance.Owner;
-            int instanceID = owner.GetInstanceID(); 
+            int instanceID = owner.GetInstanceID();
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
             // Apply damage modifiers (head, occiput etc...)
@@ -111,7 +120,7 @@ namespace KillIndicatorFix.Patches
 
             if (ConfigManager.Debug)
             {
-                APILogger.Debug(Module.Name, $"Bullet Damage: {num}");
+                APILogger.Debug(Module.Name, $"{num} Bullet Damage done by {p.PlayerName}. IsBot: {p.Owner.IsBot}");
                 APILogger.Debug(Module.Name, $"Tracked current HP: {__instance.Health}, [{owner.GetInstanceID()}]");
             }
         }
@@ -165,9 +174,7 @@ namespace KillIndicatorFix.Patches
             if (willDie && !__instance.m_base.DeathIndicatorShown)
             {
                 if (!markers.ContainsKey(instanceID)) markers.Add(instanceID, now);
-#if DEBUG
-                else APILogger.Debug(Module.Name, $"Marker for enemy was already shown. This should not happen.");
-#endif
+                else if (ConfigManager.Debug) APILogger.Debug(Module.Name, $"Marker for enemy was already shown. This should not happen.");
             }
         }
     }
