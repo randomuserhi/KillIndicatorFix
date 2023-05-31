@@ -8,13 +8,17 @@ using API;
 using KillIndicatorFix.Patches;
 using Player;
 
+// NOTE(randomuserhi): This mod alters the HP values of the enemies directly, this means that other mods that do the same
+//                     will conflict with this mod. If you wish to make a mod compatible with this mod, you need to track
+//                     enemy health seperately to the internal system.
+
 namespace KillIndicatorFix
 {
     public static class Module
     {
         public const string GUID = "randomuserhi.KillIndicatorFix";
         public const string Name = "KillIndicatorFix";
-        public const string Version = "0.0.6";
+        public const string Version = "0.0.8";
     }
 
     [BepInPlugin(Module.GUID, Module.Name, Module.Version)]
@@ -31,6 +35,6 @@ namespace KillIndicatorFix
             RundownManager.add_OnExpeditionGameplayStarted((Action)KillIndicatorFix.Patches.Kill.OnRundownStart);
         }
 
-        private Harmony harmony;
+        private Harmony? harmony;
     }
 }
