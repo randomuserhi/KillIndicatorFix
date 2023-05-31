@@ -26,7 +26,7 @@ namespace KillIndicatorFix
     {
         public override void Load()
         {
-            APILogger.Debug(Module.Name, "Loaded KillIndicatorFix");
+            APILogger.Debug(Module.Name, $"Loaded {Module.Name} {Module.Version}");
             harmony = new Harmony(Module.GUID);
             harmony.PatchAll();
 

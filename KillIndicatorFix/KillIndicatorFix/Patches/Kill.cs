@@ -129,7 +129,7 @@ namespace KillIndicatorFix.Patches
 
         [HarmonyPatch(typeof(Dam_EnemyDamageLimb), nameof(Dam_EnemyDamageLimb.MeleeDamage))]
         [HarmonyPrefix]
-        public static void MeleeDamage(Dam_EnemyDamageLimb __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, int limbID, float staggerMulti, float precisionMulti, float environmentMulti, float backstabberMulti, float sleeperMulti, bool skipLimbDestruction, DamageNoiseLevel damageNoiseLevel)
+        public static void MeleeDamage(Dam_EnemyDamageLimb __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, float staggerMulti, float precisionMulti, float environmentMulti, float backstabberMulti, float sleeperMulti, bool skipLimbDestruction, DamageNoiseLevel damageNoiseLevel)
         {
             if (SNetwork.SNet.IsMaster) return;
             PlayerAgent? p = sourceAgent.TryCast<PlayerAgent>();
