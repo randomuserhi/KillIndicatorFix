@@ -1,12 +1,8 @@
 ﻿using BepInEx;
-using BepInEx.Logging;
 using BepInEx.Unity.IL2CPP;
 using HarmonyLib;
-using UnityEngine;
 
 using API;
-using KillIndicatorFix.Patches;
-using Player;
 
 // NOTE(randomuserhi): This mod alters the HP values of the enemies directly, this means that other mods that do the same
 //                     will conflict with this mod. If you wish to make a mod compatible with this mod, you need to track
