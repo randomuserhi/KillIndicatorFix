@@ -85,9 +85,9 @@ namespace KillIndicatorFix.Patches
             catch { APILogger.Debug(Module.Name, "Something went wrong."); }
         }
 
-        [HarmonyPatch(typeof(Dam_EnemyDamageLimb), nameof(Dam_EnemyDamageLimb.BulletDamage))]
+        [HarmonyPatch(typeof(Dam_EnemyDamageBase), nameof(Dam_EnemyDamageBase.BulletDamage))]
         [HarmonyPrefix]
-        public static void BulletDamage(Dam_EnemyDamageLimb __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, Vector3 normal, bool allowDirectionalBonus, float staggerMulti, float precisionMulti)
+        public static void BulletDamage(Dam_EnemyDamageBase __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, bool allowDirectionalBonus, int limbID, float precisionMulti)
         {
             if (SNetwork.SNet.IsMaster) return;
             PlayerAgent? p = sourceAgent.TryCast<PlayerAgent>();
@@ -98,15 +98,13 @@ namespace KillIndicatorFix.Patches
             }
             if (p.Owner.IsBot) return; // Check player isnt a bot
 
-            Dam_EnemyDamageBase m_base = __instance.m_base;
-            EnemyAgent owner = m_base.Owner;
+            EnemyAgent owner = __instance.Owner;
             int instanceID = owner.GetInstanceID();
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
             // Apply damage modifiers (head, occiput etc...)
-            float num = __instance.ApplyWeakspotAndArmorModifiers(dam, precisionMulti);
-            num = __instance.ApplyDamageFromBehindBonus(num, position, direction);
-            m_base.Health -= num;
+            float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.ProjectileResistance, Mathf.Clamp(dam, 0, __instance.HealthMax));
+            __instance.Health -= num;
 
             Vector3 localHit = position - owner.transform.position;
             Tag t = new Tag(now, localHit);
@@ -116,13 +114,13 @@ namespace KillIndicatorFix.Patches
             if (ConfigManager.Debug)
             {
                 APILogger.Debug(Module.Name, $"{num} Bullet Damage done by {p.PlayerName}. IsBot: {p.Owner.IsBot}");
-                APILogger.Debug(Module.Name, $"Tracked current HP: {m_base.Health}, [{owner.GetInstanceID()}]");
+                APILogger.Debug(Module.Name, $"Tracked current HP: {__instance.Health}, [{owner.GetInstanceID()}]");
             }
         }
 
-        [HarmonyPatch(typeof(Dam_EnemyDamageLimb), nameof(Dam_EnemyDamageLimb.MeleeDamage))]
+        [HarmonyPatch(typeof(Dam_EnemyDamageBase), nameof(Dam_EnemyDamageBase.MeleeDamage))]
         [HarmonyPrefix]
-        public static void MeleeDamage(Dam_EnemyDamageLimb __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, float staggerMulti, float precisionMulti, float environmentMulti, float backstabberMulti, float sleeperMulti, bool skipLimbDestruction, DamageNoiseLevel damageNoiseLevel)
+        public static void MeleeDamage(Dam_EnemyDamageBase __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, int limbID, float staggerMulti, float precisionMulti, float sleeperMulti, bool skipLimbDestruction, DamageNoiseLevel damageNoiseLevel)
         {
             if (SNetwork.SNet.IsMaster) return;
             PlayerAgent? p = sourceAgent.TryCast<PlayerAgent>();
@@ -133,15 +131,13 @@ namespace KillIndicatorFix.Patches
             }
             if (p.Owner.IsBot) return; // Check player isnt a bot
 
-            Dam_EnemyDamageBase m_base = __instance.m_base;
-            EnemyAgent owner = m_base.Owner;
+            EnemyAgent owner = __instance.Owner;
             int instanceID = owner.GetInstanceID();
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
             // Apply damage modifiers (head, occiput etc...)
-            float num = __instance.ApplyWeakspotAndArmorModifiers(dam, precisionMulti);
-            num = __instance.ApplyDamageFromBehindBonus(num, position, direction, backstabberMulti);
-            m_base.Health -= num;
+            float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.MeleeResistance, Mathf.Clamp(dam, 0, __instance.DamageMax));
+            __instance.Health -= num;
 
             Vector3 localHit = position - owner.transform.position;
             Tag t = new Tag(now, localHit);
@@ -151,7 +147,7 @@ namespace KillIndicatorFix.Patches
             if (ConfigManager.Debug)
             {
                 APILogger.Debug(Module.Name, $"Melee Damage: {num}");
-                APILogger.Debug(Module.Name, $"Tracked current HP: {m_base.Health}, [{owner.GetInstanceID()}]");
+                APILogger.Debug(Module.Name, $"Tracked current HP: {__instance.Health}, [{owner.GetInstanceID()}]");
             }
         }
 
