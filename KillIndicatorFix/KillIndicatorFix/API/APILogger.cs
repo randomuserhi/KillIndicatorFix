@@ -1,4 +1,12 @@
 ﻿using BepInEx.Logging;
+using KillIndicatorFix;
+
+public static class Module
+{
+    public const string GUID = "randomuserhi.KillIndicatorFix";
+    public const string Name = "KillIndicatorFix";
+    public const string Version = "0.0.9";
+}
 
 namespace API
 {
@@ -22,8 +30,15 @@ namespace API
             logger.LogDebug(Format(module, data));
 #endif
         }
-        public static void Debug(string module, object data) => logger.LogDebug(Format(module, data));
-        public static void Warn(string module, object data) => logger.LogWarning(Format(module, data));
-        public static void Error(string module, object data) => logger.LogError(Format(module, data));
+        public static void Log(object data)
+        {
+            logger.LogDebug(Format(Module.Name, data));
+        }
+        public static void Debug(object data)
+        {
+            if (ConfigManager.Debug) Log(data);
+        }
+        public static void Warn(object data) => logger.LogWarning(Format(Module.Name, data));
+        public static void Error(object data) => logger.LogError(Format(Module.Name, data));
     }
 }
