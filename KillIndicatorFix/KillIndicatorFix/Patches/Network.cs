@@ -7,6 +7,7 @@ using Player;
 using HarmonyLib;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
+// TODO(randomuserhi): Add MTFO support to not add too many network hooks
 namespace KillIndicatorFix.Patches
 {
     [HarmonyPatch]
