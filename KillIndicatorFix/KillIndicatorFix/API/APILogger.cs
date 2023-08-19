@@ -5,7 +5,7 @@ public static class Module
 {
     public const string GUID = "randomuserhi.KillIndicatorFix";
     public const string Name = "KillIndicatorFix";
-    public const string Version = "0.0.9";
+    public const string Version = "0.1.0";
 }
 
 namespace API
