@@ -8,6 +8,7 @@ using HarmonyLib;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
 
 // TODO(randomuserhi): Add MTFO support to not add too many network hooks
+// TODO(randomuserhi): Add an aggreement packet on player join to prevent sending bad packets all the time
 namespace KillIndicatorFix.Patches
 {
     [HarmonyPatch]
