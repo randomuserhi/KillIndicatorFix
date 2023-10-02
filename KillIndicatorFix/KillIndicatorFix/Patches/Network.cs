@@ -44,7 +44,6 @@ namespace KillIndicatorFix.Patches
             BitHelper.WriteBytes(willDie, packet, ref index);
             BitHelper.WriteHalf(position, packet, ref index);
             BitHelper.WriteBytes(hitArmor, packet, ref index);
-
             SNet.Core.SendBytes(packet, quality, channel, il2cppList);
             APILogger.Debug($"Sent hit marker to {player.PlayerName}");
         }
