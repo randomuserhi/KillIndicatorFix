@@ -20,9 +20,6 @@ namespace KillIndicatorFix.Patches {
                 case 125: // Mine deployer mine
                     mineOwners.Add(__instance.gameObject.GetInstanceID(), owner);
                     break;
-                case 139: // Consumable mine
-                    mineOwners.Add(__instance.gameObject.GetInstanceID(), owner);
-                    break;
                 }
             }
         }
@@ -37,7 +34,11 @@ namespace KillIndicatorFix.Patches {
         [HarmonyPrefix]
         private static void Prefix_Detonate_Explosive(MineDeployerInstance_Detonate_Explosive __instance) {
             int instance = __instance.gameObject.GetInstanceID();
-            currentMineOwner = mineOwners[instance];
+            if (mineOwners.ContainsKey(instance)) {
+                currentMineOwner = mineOwners[instance];
+            } else {
+                currentMineOwner = null;
+            }
             mineOwners.Remove(instance);
         }
 
