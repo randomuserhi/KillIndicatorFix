@@ -1,12 +1,9 @@
-﻿using BepInEx.Configuration;
-using BepInEx;
+﻿using BepInEx;
+using BepInEx.Configuration;
 
-namespace KillIndicatorFix
-{
-    public static class ConfigManager
-    {
-        static ConfigManager()
-        {
+namespace KillIndicatorFix.BepInEx {
+    public static class ConfigManager {
+        static ConfigManager() {
             string text = Path.Combine(Paths.ConfigPath, $"{Module.Name}.cfg");
             ConfigFile configFile = new ConfigFile(text, true);
 
@@ -17,9 +14,9 @@ namespace KillIndicatorFix
                 "Enables debug messages when true.");
 
             markerLifeTime = configFile.Bind(
-                "Settings", 
+                "Settings",
                 "MarkerLifeTime",
-                3000, 
+                3000,
                 "Indicates how long the mod will keep track of shown kill markers for in milliseconds.");
 
             tagBufferPeriod = configFile.Bind(
@@ -29,18 +26,15 @@ namespace KillIndicatorFix
                 "Indicates a lee-way period in milliseconds where a kill indicator will still be shown for a given enemy long after it has been tagged (shot at).");
         }
 
-        public static bool Debug
-        {
+        public static bool Debug {
             get { return debug.Value; }
         }
 
-        public static int MarkerLifeTime
-        {
+        public static int MarkerLifeTime {
             get { return markerLifeTime.Value; }
         }
 
-        public static int TagBufferPeriod
-        {
+        public static int TagBufferPeriod {
             get { return tagBufferPeriod.Value; }
         }
 

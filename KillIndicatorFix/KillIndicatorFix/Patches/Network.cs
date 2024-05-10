@@ -1,21 +1,18 @@
-﻿using API;
-using UnityEngine;
-using SNetwork;
-using Agents;
+﻿using Agents;
+using API;
 using Enemies;
-using Player;
 using HarmonyLib;
 using Il2CppInterop.Runtime.InteropTypes.Arrays;
+using Player;
+using SNetwork;
+using UnityEngine;
 
 // TODO(randomuserhi): Add MTFO support to not add too many network hooks
 // TODO(randomuserhi): Add an aggreement packet on player join to prevent sending bad packets all the time
-namespace KillIndicatorFix.Patches
-{
+namespace KillIndicatorFix.Patches {
     [HarmonyPatch]
-    public class Network
-    {
-        public static void SendHitIndicator(Agent target, byte limbID, PlayerAgent player, bool hitWeakspot, bool willDie, Vector3 position, bool hitArmor = false)
-        {
+    internal static class Network {
+        public static void SendHitIndicator(Agent target, byte limbID, PlayerAgent player, bool hitWeakspot, bool willDie, Vector3 position, bool hitArmor = false) {
             // client cannot send hit indicators
             if (!SNet.IsMaster) return;
             // player cannot send hit indicators to self
@@ -56,26 +53,22 @@ namespace KillIndicatorFix.Patches
         [HarmonyPatch(typeof(SNet_Replication), nameof(SNet_Replication.RecieveBytes))]
         [HarmonyWrapSafe]
         [HarmonyPrefix]
-        private static bool RecieveBytes_Prefix(Il2CppStructArray<byte> bytes, uint size, ulong messagerID)
-        {
+        private static bool RecieveBytes_Prefix(Il2CppStructArray<byte> bytes, uint size, ulong messagerID) {
             if (size < 12) return true;
 
             // The implicit constructor duplicates the memory, so copying it once and using that is best
             byte[] _bytesCpy = bytes;
 
             ushort replicatorKey = BitConverter.ToUInt16(_bytesCpy, 0);
-            if (repKey == replicatorKey)
-            {
+            if (repKey == replicatorKey) {
                 uint receivedMagicKey = BitConverter.ToUInt32(bytes, sizeof(ushort));
-                if (receivedMagicKey != magickey)
-                {
+                if (receivedMagicKey != magickey) {
                     APILogger.Debug($"[Networking] Magic key is incorrect.");
                     return true;
                 }
 
                 byte receivedMsgtype = bytes[sizeof(ushort) + sizeof(uint)];
-                if (receivedMsgtype != msgtype)
-                {
+                if (receivedMsgtype != msgtype) {
                     APILogger.Debug($"[Networking] msg type is incorrect. {receivedMsgtype} {msgtype}");
                     return true;
                 }
@@ -99,16 +92,16 @@ namespace KillIndicatorFix.Patches
                 _agent.pRep = pRep;
                 _agent.TryGet(out Agent agent);
                 EnemyAgent? targetEnemy = agent.TryCast<EnemyAgent>();
-                if (targetEnemy != null)
-                {
+                if (targetEnemy != null) {
                     APILogger.Debug("Received hit indicator for enemy.");
                     Dam_EnemyDamageLimb dam = targetEnemy.Damage.DamageLimbs[limbID];
+                    Kill.sentryShot = true;
                     dam.ShowHitIndicator(hitWeakspot, willDie, position, hitArmor);
+                    Kill.sentryShot = false;
                     return false;
                 }
                 PlayerAgent? targetPlayer = agent.TryCast<PlayerAgent>();
-                if (targetPlayer != null)
-                {
+                if (targetPlayer != null) {
                     APILogger.Debug("Received hit indicator for player.");
                     GuiManager.CrosshairLayer.PopFriendlyTarget();
                     return false;
