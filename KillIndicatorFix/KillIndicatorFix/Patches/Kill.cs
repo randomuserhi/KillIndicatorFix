@@ -9,7 +9,7 @@ using UnityEngine;
 namespace KillIndicatorFix.Patches {
     [HarmonyPatch]
     internal static class Kill {
-        private struct Tag {
+        public struct Tag {
             public long timestamp;
             public Vector3 localHitPosition; // Store local position to prevent desync when enemy moves since hit position is relative to world not enemy.
             public ItemEquippable item;
@@ -21,13 +21,12 @@ namespace KillIndicatorFix.Patches {
             }
         }
 
-        private static Dictionary<int, Tag> taggedEnemies = new Dictionary<int, Tag>();
+        public static Dictionary<int, Tag> taggedEnemies = new Dictionary<int, Tag>();
         private static Dictionary<int, long> markers = new Dictionary<int, long>();
 
         public static void OnRundownStart() {
             APILogger.Debug("OnRundownStart => Reset Trackers and Markers.");
 
-            Mine.mineOwners.Clear();
             markers.Clear();
             taggedEnemies.Clear();
         }
@@ -57,7 +56,6 @@ namespace KillIndicatorFix.Patches {
                         if (!markers.ContainsKey(instanceID)) {
                             APILogger.Debug($"Client side marker was not shown, showing server side one.");
 
-                            KillIndicatorFix.Kill.TriggerOnEnemyDead(owner, PlayerManager.GetLocalPlayerAgent(), t.item, now - t.timestamp);
                             KillIndicatorFix.Kill.TriggerOnKillIndicator(owner, t.item, now - t.timestamp);
                             GuiManager.CrosshairLayer?.ShowDeathIndicator(owner.transform.position + t.localHitPosition);
                         } else {
@@ -66,106 +64,12 @@ namespace KillIndicatorFix.Patches {
                             markers.Remove(instanceID);
                         }
                     } else {
-                        KillIndicatorFix.Kill.TriggerOnEnemyDead(owner, null, null, 0);
                         APILogger.Debug($"Client was no longer interested in this enemy, marker will not be shown.");
                     }
 
                     taggedEnemies.Remove(instanceID);
-                } else {
-                    KillIndicatorFix.Kill.TriggerOnEnemyDead(owner, null, null, 0);
                 }
             } catch { APILogger.Debug("Something went wrong."); }
-        }
-
-        // Manage OnEnemyDead API
-        [HarmonyPatch(typeof(Dam_EnemyDamageBase), nameof(Dam_EnemyDamageBase.ReceiveBulletDamage))]
-        [HarmonyPrefix]
-        public static void Host_BulletDamage(Dam_EnemyDamageBase __instance, pBulletDamageData data) {
-            if (!SNetwork.SNet.IsMaster) return;
-            if (!__instance.Owner.Alive) return;
-
-            Agent sourceAgent;
-            if (!data.source.TryGet(out sourceAgent)) {
-                APILogger.Debug($"Unable to find source agent.");
-                return;
-            }
-
-            PlayerAgent? p = sourceAgent.TryCast<PlayerAgent>();
-            if (p == null) // Check damage was done by a player
-            {
-                APILogger.Debug($"Could not find PlayerAgent, damage was done by agent of type: {sourceAgent.m_type}.");
-                return;
-            }
-
-            float damage = AgentModifierManager.ApplyModifier(__instance.Owner, AgentModifier.ProjectileResistance, data.damage.Get(__instance.HealthMax));
-            if (__instance.Health <= damage) {
-                if (sentryShot && PlayerBackpackManager.TryGetItem(p.Owner, InventorySlot.GearClass, out BackpackItem bpItem)) {
-                    KillIndicatorFix.Kill.TriggerOnEnemyDead(__instance.Owner, p, bpItem.Instance.Cast<ItemEquippable>(), 0);
-                } else if (PlayerBackpackManager.TryGetItem(p.Owner, InventorySlot.GearStandard, out BackpackItem standardItem) && PlayerBackpackManager.TryGetItem(p.Owner, InventorySlot.GearSpecial, out BackpackItem specialItem)) {
-                    ItemEquippable item = p.Inventory.WieldedItem;
-                    if (item.GearIDRange.PublicGearName == standardItem.GearIDRange.PublicGearName) {
-                        KillIndicatorFix.Kill.TriggerOnEnemyDead(__instance.Owner, p, standardItem.Instance.Cast<ItemEquippable>(), 0);
-                    } else {
-                        KillIndicatorFix.Kill.TriggerOnEnemyDead(__instance.Owner, p, specialItem.Instance.Cast<ItemEquippable>(), 0);
-                    }
-                } else {
-                    APILogger.Debug("Failed to get bullet weapon from owner.");
-                }
-            }
-        }
-
-        [HarmonyPatch(typeof(Dam_EnemyDamageBase), nameof(Dam_EnemyDamageBase.ReceiveMeleeDamage))]
-        [HarmonyPrefix]
-        public static void Host_MeleeDamage(Dam_EnemyDamageBase __instance, pFullDamageData data) {
-            if (!SNetwork.SNet.IsMaster) return;
-            if (!__instance.Owner.Alive) return;
-
-            Agent sourceAgent;
-            if (!data.source.TryGet(out sourceAgent)) {
-                APILogger.Debug($"Unable to find source agent.");
-                return;
-            }
-
-            PlayerAgent? p = sourceAgent.TryCast<PlayerAgent>();
-            if (p == null) // Check damage was done by a player
-            {
-                APILogger.Debug($"Could not find PlayerAgent, damage was done by agent of type: {sourceAgent.m_type}.");
-                return;
-            }
-
-            float damage = AgentModifierManager.ApplyModifier(__instance.Owner, AgentModifier.MeleeResistance, data.damage.Get(__instance.DamageMax));
-            if (__instance.Owner.Locomotion.CurrentStateEnum == ES_StateEnum.Hibernate) {
-                damage *= data.sleeperMulti.Get(10f);
-            }
-            if (__instance.Health <= damage) {
-                if (PlayerBackpackManager.TryGetItem(p.Owner, InventorySlot.GearMelee, out BackpackItem bpItem)) {
-                    KillIndicatorFix.Kill.TriggerOnEnemyDead(__instance.Owner, p, bpItem.Instance.Cast<ItemEquippable>(), 0);
-                } else {
-                    APILogger.Debug("Failed to get melee weapon from owner.");
-                }
-            }
-        }
-
-        [HarmonyPatch(typeof(Dam_EnemyDamageBase), nameof(Dam_EnemyDamageBase.ReceiveExplosionDamage))]
-        [HarmonyPrefix]
-        public static void Host_ExplosiveDamage(Dam_EnemyDamageBase __instance, pExplosionDamageData data) {
-            if (!SNetwork.SNet.IsMaster) return;
-            if (!__instance.Owner.Alive) return;
-
-            PlayerAgent? p = Mine.currentMineOwner;
-            if (p == null) // Check damage was done by a player
-            {
-                APILogger.Debug($"Unable to find source agent.");
-                return;
-            }
-
-            if (__instance.Health <= data.damage.Get(__instance.HealthMax)) {
-                if (PlayerBackpackManager.TryGetItem(p.Owner, InventorySlot.GearClass, out BackpackItem bpItem)) {
-                    KillIndicatorFix.Kill.TriggerOnEnemyDead(__instance.Owner, p, bpItem.Instance.Cast<ItemEquippable>(), 0);
-                } else {
-                    APILogger.Debug("Failed to get mine deployer from mine owner.");
-                }
-            }
         }
 
         // Determine if the shot was performed by a sentry or player
@@ -324,7 +228,6 @@ namespace KillIndicatorFix.Patches {
                     if (sentryShot && PlayerBackpackManager.TryGetItem(player.Owner, InventorySlot.GearClass, out BackpackItem bpItem)) {
                         item = bpItem.Instance.Cast<ItemEquippable>();
                     }
-                    if (!SNetwork.SNet.IsMaster && !sentryShot) KillIndicatorFix.Kill.TriggerOnEnemyDead(owner, player, item, 0);
                     KillIndicatorFix.Kill.TriggerOnKillIndicator(owner, item, 0);
                     markers.Add(instanceID, now);
                 } else APILogger.Debug($"Marker for enemy was already shown. This should not happen.");
