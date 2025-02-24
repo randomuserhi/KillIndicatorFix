@@ -13,12 +13,6 @@ namespace KillIndicatorFix.BepInEx {
                 false,
                 "Enables debug messages when true.");
 
-            markerLifeTime = configFile.Bind(
-                "Settings",
-                "MarkerLifeTime",
-                3000,
-                "Indicates how long the mod will keep track of shown kill markers for in milliseconds.");
-
             tagBufferPeriod = configFile.Bind(
                 "Settings",
                 "TagBufferPeriod",
@@ -30,16 +24,11 @@ namespace KillIndicatorFix.BepInEx {
             get { return debug.Value; }
         }
 
-        public static int MarkerLifeTime {
-            get { return markerLifeTime.Value; }
-        }
-
         public static int TagBufferPeriod {
             get { return tagBufferPeriod.Value; }
         }
 
         private static ConfigEntry<bool> debug;
-        private static ConfigEntry<int> markerLifeTime;
         private static ConfigEntry<int> tagBufferPeriod;
     }
 }

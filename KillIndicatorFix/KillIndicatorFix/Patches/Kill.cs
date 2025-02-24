@@ -22,12 +22,10 @@ namespace KillIndicatorFix.Patches {
         }
 
         public static Dictionary<int, Tag> taggedEnemies = new Dictionary<int, Tag>();
-        private static Dictionary<int, long> markers = new Dictionary<int, long>();
 
         public static void OnRundownStart() {
             APILogger.Debug("OnRundownStart => Reset Trackers and Markers.");
 
-            markers.Clear();
             taggedEnemies.Clear();
         }
 
@@ -53,15 +51,14 @@ namespace KillIndicatorFix.Patches {
                         APILogger.Debug($"Received kill update for enemy that was tagged in the future? Possibly long overflow...");
 
                     if (t.timestamp <= now && now - t.timestamp < ConfigManager.TagBufferPeriod) {
-                        if (!markers.ContainsKey(instanceID)) {
+                        if (!owner.Damage.DeathIndicatorShown) {
                             APILogger.Debug($"Client side marker was not shown, showing server side one.");
 
                             KillIndicatorFix.Kill.TriggerOnKillIndicator(owner, t.item, now - t.timestamp);
                             GuiManager.CrosshairLayer?.ShowDeathIndicator(owner.transform.position + t.localHitPosition);
+                            owner.Damage.DeathIndicatorShown = true;
                         } else {
                             APILogger.Debug($"Client side marker was shown, not showing server side one.");
-
-                            markers.Remove(instanceID);
                         }
                     } else {
                         APILogger.Debug($"Client was no longer interested in this enemy, marker will not be shown.");
@@ -100,6 +97,7 @@ namespace KillIndicatorFix.Patches {
         // Send hitmarkers to clients from sentry shots
         [HarmonyPatch(typeof(Dam_EnemyDamageLimb), nameof(Dam_EnemyDamageLimb.BulletDamage))]
         [HarmonyPrefix]
+        [HarmonyPriority(Priority.Last)]
         public static void EnemyLimb_BulletDamage(Dam_EnemyDamageLimb __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, Vector3 normal, bool allowDirectionalBonus, float staggerMulti, float precisionMulti) {
             if (!SNetwork.SNet.IsMaster) return;
 
@@ -127,6 +125,7 @@ namespace KillIndicatorFix.Patches {
         }
         [HarmonyPatch(typeof(Dam_PlayerDamageBase), nameof(Dam_PlayerDamageBase.ReceiveBulletDamage))]
         [HarmonyPrefix]
+        [HarmonyPriority(Priority.Last)]
         public static void Player_BulletDamage(Dam_PlayerDamageBase __instance, pBulletDamageData data) {
             if (!SNetwork.SNet.IsMaster) return;
 
@@ -149,6 +148,7 @@ namespace KillIndicatorFix.Patches {
 
         [HarmonyPatch(typeof(Dam_EnemyDamageBase), nameof(Dam_EnemyDamageBase.BulletDamage))]
         [HarmonyPrefix]
+        [HarmonyPriority(Priority.Last)]
         public static void BulletDamage(Dam_EnemyDamageBase __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, bool allowDirectionalBonus, int limbID, float precisionMulti) {
             if (SNetwork.SNet.IsMaster) return;
             PlayerAgent? p = sourceAgent.TryCast<PlayerAgent>();
@@ -177,6 +177,7 @@ namespace KillIndicatorFix.Patches {
 
         [HarmonyPatch(typeof(Dam_EnemyDamageBase), nameof(Dam_EnemyDamageBase.MeleeDamage))]
         [HarmonyPrefix]
+        [HarmonyPriority(Priority.Last)]
         public static void MeleeDamage(Dam_EnemyDamageBase __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, int limbID, float staggerMulti, float precisionMulti, float sleeperMulti, bool skipLimbDestruction, DamageNoiseLevel damageNoiseLevel) {
             if (SNetwork.SNet.IsMaster) return;
             PlayerAgent? p = sourceAgent.TryCast<PlayerAgent>();
@@ -214,23 +215,14 @@ namespace KillIndicatorFix.Patches {
             int instanceID = owner.GetInstanceID();
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
-            // Prevents the case where client fails to receive kill confirm from host so marker persists in dictionary
-            int[] keys = markers.Keys.ToArray();
-            foreach (int id in keys) {
-                if (now - markers[id] > ConfigManager.MarkerLifeTime) markers.Remove(id);
-            }
-
             // Only call if GuiManager.CrosshairLayer.ShowDeathIndicator(position); is going to get called (condition is taken from source)
             if (willDie && !__instance.m_base.DeathIndicatorShown) {
-                if (!markers.ContainsKey(instanceID)) {
-                    PlayerAgent player = PlayerManager.GetLocalPlayerAgent();
-                    ItemEquippable item = player.Inventory.WieldedItem;
-                    if (sentryShot && PlayerBackpackManager.TryGetItem(player.Owner, InventorySlot.GearClass, out BackpackItem bpItem)) {
-                        item = bpItem.Instance.Cast<ItemEquippable>();
-                    }
-                    KillIndicatorFix.Kill.TriggerOnKillIndicator(owner, item, 0);
-                    markers.Add(instanceID, now);
-                } else APILogger.Debug($"Marker for enemy was already shown. This should not happen.");
+                PlayerAgent player = PlayerManager.GetLocalPlayerAgent();
+                ItemEquippable item = player.Inventory.WieldedItem;
+                if (sentryShot && PlayerBackpackManager.TryGetItem(player.Owner, InventorySlot.GearClass, out BackpackItem bpItem)) {
+                    item = bpItem.Instance.Cast<ItemEquippable>();
+                }
+                KillIndicatorFix.Kill.TriggerOnKillIndicator(owner, item, 0);
             }
         }
     }
