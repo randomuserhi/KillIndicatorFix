@@ -23,6 +23,9 @@ namespace KillIndicatorFix.Patches {
 
         public static Dictionary<int, Tag> taggedEnemies = new Dictionary<int, Tag>();
 
+        // Used to handle UFloat conversion of damage
+        private static pFullDamageData fullDamageData = new();
+
         public static void OnRundownStart() {
             APILogger.Debug("OnRundownStart => Reset Trackers and Markers.");
 
@@ -151,10 +154,10 @@ namespace KillIndicatorFix.Patches {
         [HarmonyPriority(Priority.Last)]
         public static void BulletDamage(Dam_EnemyDamageBase __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, bool allowDirectionalBonus, int limbID, float precisionMulti) {
             if (SNetwork.SNet.IsMaster) return;
-            PlayerAgent? p = sourceAgent.TryCast<PlayerAgent>();
+            PlayerAgent? p = sourceAgent?.TryCast<PlayerAgent>();
             if (p == null) // Check damage was done by a player
             {
-                APILogger.Debug($"Could not find PlayerAgent, damage was done by agent of type: {sourceAgent.m_type}.");
+                APILogger.Debug($"Could not find PlayerAgent.");
                 return;
             }
             if (p.Owner.IsBot) return; // Check player isnt a bot
@@ -163,7 +166,8 @@ namespace KillIndicatorFix.Patches {
             int instanceID = owner.GetInstanceID();
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
-            float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.ProjectileResistance, Mathf.Clamp(dam, 0, __instance.HealthMax));
+            fullDamageData.damage.Set(dam, __instance.HealthMax);
+            float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.ProjectileResistance, fullDamageData.damage.Get(__instance.HealthMax));
             __instance.Health -= num;
 
             Vector3 localHit = position - owner.transform.position;
@@ -178,12 +182,12 @@ namespace KillIndicatorFix.Patches {
         [HarmonyPatch(typeof(Dam_EnemyDamageBase), nameof(Dam_EnemyDamageBase.MeleeDamage))]
         [HarmonyPrefix]
         [HarmonyPriority(Priority.Last)]
-        public static void MeleeDamage(Dam_EnemyDamageBase __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, int limbID, float staggerMulti, float precisionMulti, float sleeperMulti, bool skipLimbDestruction, DamageNoiseLevel damageNoiseLevel) {
+        public static void MeleeDamage(Dam_EnemyDamageBase __instance, float dam, Agent sourceAgent, Vector3 position, Vector3 direction, int limbID, float staggerMulti, float precisionMulti, float backstabberMulti, float sleeperMulti, bool skipLimbDestruction, DamageNoiseLevel damageNoiseLevel) {
             if (SNetwork.SNet.IsMaster) return;
-            PlayerAgent? p = sourceAgent.TryCast<PlayerAgent>();
+            PlayerAgent? p = sourceAgent?.TryCast<PlayerAgent>();
             if (p == null) // Check damage was done by a player
             {
-                APILogger.Debug($"Could not find PlayerAgent, damage was done by agent of type: {sourceAgent.m_type}.");
+                APILogger.Debug($"Could not find PlayerAgent.");
                 return;
             }
             if (p.Owner.IsBot) return; // Check player isnt a bot
@@ -193,9 +197,11 @@ namespace KillIndicatorFix.Patches {
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
             // Apply damage modifiers (head, occiput etc...)
-            float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.MeleeResistance, Mathf.Clamp(dam, 0, __instance.DamageMax));
+            fullDamageData.damage.Set(dam, __instance.HealthMax);
+            float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.MeleeResistance, fullDamageData.damage.Get(__instance.HealthMax));
             if (__instance.Owner.Locomotion.CurrentStateEnum == ES_StateEnum.Hibernate) {
-                num *= sleeperMulti;
+                fullDamageData.sleeperMulti.Set(sleeperMulti, 10);
+                num *= fullDamageData.sleeperMulti.Get(10);
             }
             __instance.Health -= num;
 
@@ -213,7 +219,6 @@ namespace KillIndicatorFix.Patches {
         public static void ShowDeathIndicator(Dam_EnemyDamageLimb __instance, bool hitWeakspot, bool willDie, Vector3 position, bool hitArmor) {
             EnemyAgent owner = __instance.m_base.Owner;
             int instanceID = owner.GetInstanceID();
-            long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
             // Only call if GuiManager.CrosshairLayer.ShowDeathIndicator(position); is going to get called (condition is taken from source)
             if (willDie && !__instance.m_base.DeathIndicatorShown) {
