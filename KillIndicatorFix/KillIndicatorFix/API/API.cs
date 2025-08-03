@@ -67,11 +67,11 @@ namespace KillIndicatorFix {
         /// <param name="item">Item that applied the damage for this tag. If not provided, uses currently equipped weapon.</param>  
         /// <param name="localHitPosition">Where the indicator should appear. Typically this is set to the hit position for bullet hit. If not provided, uses last tag's hit position when available, otherwise uses eye position. NOTE: The position is local to the enemy, not world-space.</param>  
         public static void TagEnemy(EnemyAgent enemy, ItemEquippable? item = null, Vector3? localHitPosition = null) {
-            int instanceID = enemy.GetInstanceID();
+            ushort id = enemy.GlobalID;
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
             if (localHitPosition == null) {
-                if (Patches.Kill.taggedEnemies.ContainsKey(instanceID)) {
-                    localHitPosition = Patches.Kill.taggedEnemies[instanceID].localHitPosition;
+                if (Patches.Kill.taggedEnemies.ContainsKey(id)) {
+                    localHitPosition = Patches.Kill.taggedEnemies[id].localHitPosition;
                 } else {
                     localHitPosition = enemy.EyePosition - enemy.transform.position;
                 }
@@ -79,9 +79,10 @@ namespace KillIndicatorFix {
             if (item == null) {
                 item = PlayerManager.GetLocalPlayerAgent().Inventory.WieldedItem;
             }
-            Patches.Kill.Tag t = new Patches.Kill.Tag(now, localHitPosition.Value, item);
-            if (Patches.Kill.taggedEnemies.ContainsKey(instanceID)) Patches.Kill.taggedEnemies[instanceID] = t;
-            else Patches.Kill.taggedEnemies.Add(instanceID, t);
+            Patches.Kill.Tag t = new Patches.Kill.Tag(now, localHitPosition.Value, item, enemy.Damage.Health);
+            Patches.Kill.CheckMismatch(t, enemy.Damage);
+            if (Patches.Kill.taggedEnemies.ContainsKey(id)) Patches.Kill.taggedEnemies[id] = t;
+            else Patches.Kill.taggedEnemies.Add(id, t);
         }
     }
 }
