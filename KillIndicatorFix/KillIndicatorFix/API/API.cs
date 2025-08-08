@@ -50,9 +50,9 @@ namespace KillIndicatorFix {
         /// <param name="arg1">Enemy that kill indicator was shown for.</param>  
         /// <param name="arg2">Item used.</param>  
         /// <param name="arg3">On client, if the local player made the kill, provides the delay in milliseconds from player shot to recieving death packet from host.</param>  
-        public static Action<EnemyAgent, ItemEquippable, long>? OnKillIndicator;
+        public static Action<EnemyAgent, ItemEquippable?, long>? OnKillIndicator;
 
-        internal static void TriggerOnKillIndicator(EnemyAgent enemy, ItemEquippable item, long delay) {
+        internal static void TriggerOnKillIndicator(EnemyAgent enemy, ItemEquippable? item, long delay) {
             try {
                 OnKillIndicator?.Invoke(enemy, item, delay);
             } catch (Exception ex) {
@@ -79,10 +79,12 @@ namespace KillIndicatorFix {
             if (item == null) {
                 item = PlayerManager.GetLocalPlayerAgent().Inventory.WieldedItem;
             }
-            Patches.Kill.Tag t = new Patches.Kill.Tag(now, localHitPosition.Value, item, enemy.Damage.Health);
-            Patches.Kill.CheckMismatch(t, enemy.Damage);
-            if (Patches.Kill.taggedEnemies.ContainsKey(id)) Patches.Kill.taggedEnemies[id] = t;
-            else Patches.Kill.taggedEnemies.Add(id, t);
+
+            if (!Patches.Kill.taggedEnemies.ContainsKey(id)) Patches.Kill.taggedEnemies.Add(id, new Patches.Kill.Tag(enemy.Damage.Health));
+            Patches.Kill.Tag t = Patches.Kill.taggedEnemies[id];
+            t.timestamp = now;
+            t.localHitPosition = localHitPosition.Value;
+            t.item = item;
         }
     }
 }

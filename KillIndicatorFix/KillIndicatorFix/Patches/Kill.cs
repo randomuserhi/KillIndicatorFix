@@ -13,13 +13,10 @@ namespace KillIndicatorFix.Patches {
         public class Tag {
             public long timestamp;
             public Vector3 localHitPosition; // Store local position to prevent desync when enemy moves since hit position is relative to world not enemy.
-            public ItemEquippable item;
+            public ItemEquippable? item = null;
             public float health;
 
-            public Tag(long timestamp, Vector3 localHitPosition, ItemEquippable item, float health) {
-                this.timestamp = timestamp;
-                this.localHitPosition = localHitPosition;
-                this.item = item;
+            public Tag(float health) {
                 this.health = health;
             }
         }
@@ -183,15 +180,11 @@ namespace KillIndicatorFix.Patches {
             ushort id = owner.GlobalID;
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
-            if (!taggedEnemies.ContainsKey(id)) {
-                taggedEnemies.Add(id, new Tag(
-                    now,
-                    position - owner.transform.position,
-                    p.Inventory.WieldedItem,
-                    __instance.Health)
-                );
-            }
+            if (!taggedEnemies.ContainsKey(id)) taggedEnemies.Add(id, new Tag(__instance.Health));
             Tag t = taggedEnemies[id];
+            t.timestamp = now;
+            t.localHitPosition = position - owner.transform.position;
+            t.item = p.Inventory.WieldedItem;
             CheckMismatch(t, __instance);
 
             fullDamageData.damage.Set(dam, __instance.HealthMax);
@@ -200,8 +193,9 @@ namespace KillIndicatorFix.Patches {
 
             // Show indicator when tracked health assumes enemy is dead
             if (t.health <= 0 && !__instance.DeathIndicatorShown) {
-                __instance.DeathIndicatorShown = true;
+                KillIndicatorFix.Kill.TriggerOnKillIndicator(owner, t.item, now - t.timestamp);
                 GuiManager.CrosshairLayer?.ShowDeathIndicator(position);
+                __instance.DeathIndicatorShown = true;
             }
 
             APILogger.Debug($"{num} Bullet Damage done by {p.PlayerName}. IsBot: {p.Owner.IsBot}");
@@ -227,16 +221,15 @@ namespace KillIndicatorFix.Patches {
             ushort id = owner.GlobalID;
             long now = ((DateTimeOffset)DateTime.Now).ToUnixTimeMilliseconds();
 
-            if (!taggedEnemies.ContainsKey(id)) {
-                taggedEnemies.Add(id, new Tag(
-                    now,
-                    position - owner.transform.position,
-                    p.Inventory.WieldedItem,
-                    __instance.Health)
-                );
-            }
+            if (!taggedEnemies.ContainsKey(id)) taggedEnemies.Add(id, new Tag(__instance.Health));
             Tag t = taggedEnemies[id];
+            t.timestamp = now;
+            t.localHitPosition = position - owner.transform.position;
+            t.item = p.Inventory.WieldedItem;
             CheckMismatch(t, __instance);
+
+            // Update timestamp
+            t.timestamp = now;
 
             // Apply damage modifiers (head, occiput etc...)
             fullDamageData.damage.Set(dam, __instance.DamageMax);
@@ -249,8 +242,9 @@ namespace KillIndicatorFix.Patches {
 
             // Show indicator when tracked health assumes enemy is dead
             if (t.health <= 0 && !__instance.DeathIndicatorShown) {
-                __instance.DeathIndicatorShown = true;
+                KillIndicatorFix.Kill.TriggerOnKillIndicator(owner, t.item, now - t.timestamp);
                 GuiManager.CrosshairLayer?.ShowDeathIndicator(position);
+                __instance.DeathIndicatorShown = true;
             }
 
             APILogger.Debug($"Melee Damage: {num}");
