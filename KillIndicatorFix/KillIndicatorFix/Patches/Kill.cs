@@ -233,11 +233,7 @@ namespace KillIndicatorFix.Patches {
 
             // Apply damage modifiers (head, occiput etc...)
             fullDamageData.damage.Set(dam, __instance.DamageMax);
-            float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.MeleeResistance, fullDamageData.damage.Get(__instance.DamageMax));
-            if (__instance.Owner.Locomotion.CurrentStateEnum == ES_StateEnum.Hibernate) {
-                fullDamageData.sleeperMulti.Set(sleeperMulti, 10);
-                num *= fullDamageData.sleeperMulti.Get(10);
-            }
+            float num = AgentModifierManager.ApplyModifier(owner, AgentModifier.MeleeResistance, Dam_EnemyDamageBase.RoundDamage(fullDamageData.damage.Get(__instance.DamageMax)));
             t.health -= num;
 
             // Show indicator when tracked health assumes enemy is dead
