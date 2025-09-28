@@ -15,6 +15,7 @@ namespace KillIndicatorFix.Patches {
             public Vector3 localHitPosition; // Store local position to prevent desync when enemy moves since hit position is relative to world not enemy.
             public ItemEquippable? item = null;
             public float health;
+            public bool indicatorShown = false;
 
             public Tag(float health) {
                 this.health = health;
@@ -54,14 +55,16 @@ namespace KillIndicatorFix.Patches {
                         APILogger.Debug($"Received kill update for enemy that was tagged in the future? Possibly long overflow...");
 
                     if (t.timestamp <= now && now - t.timestamp < ConfigManager.TagBufferPeriod) {
-                        if (!owner.Damage.DeathIndicatorShown) {
+                        APILogger.Debug($"Enemy {owner.GlobalID}");
+                        if (!owner.Damage.DeathIndicatorShown && !t.indicatorShown) {
                             APILogger.Debug($"Client side marker was not shown, showing server side one.");
 
                             KillIndicatorFix.Kill.TriggerOnKillIndicator(owner, t.item, now - t.timestamp);
                             GuiManager.CrosshairLayer?.ShowDeathIndicator(owner.transform.position + t.localHitPosition);
                             owner.Damage.DeathIndicatorShown = true;
-                        } else {
+                        } else if (ConfigManager.Debug) {
                             APILogger.Debug($"Client side marker was shown, not showing server side one.");
+                            if (t.indicatorShown && !owner.Damage.DeathIndicatorShown) APILogger.Debug($"Desync - Vanilla DeathIndicatorShown is true, but internal is false!");
                         }
                     } else {
                         APILogger.Debug($"Client was no longer interested in this enemy, marker will not be shown.");
@@ -192,10 +195,12 @@ namespace KillIndicatorFix.Patches {
             t.health -= num;
 
             // Show indicator when tracked health assumes enemy is dead
-            if (t.health <= 0 && !__instance.DeathIndicatorShown) {
+            if (t.health <= 0 && !__instance.DeathIndicatorShown && !t.indicatorShown) {
+                APILogger.Debug("Client shown!");
                 KillIndicatorFix.Kill.TriggerOnKillIndicator(owner, t.item, now - t.timestamp);
                 GuiManager.CrosshairLayer?.ShowDeathIndicator(position);
                 __instance.DeathIndicatorShown = true;
+                t.indicatorShown = true;
             }
 
             APILogger.Debug($"{num} Bullet Damage done by {p.PlayerName}. IsBot: {p.Owner.IsBot}");
@@ -237,10 +242,12 @@ namespace KillIndicatorFix.Patches {
             t.health -= num;
 
             // Show indicator when tracked health assumes enemy is dead
-            if (t.health <= 0 && !__instance.DeathIndicatorShown) {
+            if (t.health <= 0 && !__instance.DeathIndicatorShown && !t.indicatorShown) {
+                APILogger.Debug("Client shown!");
                 KillIndicatorFix.Kill.TriggerOnKillIndicator(owner, t.item, now - t.timestamp);
                 GuiManager.CrosshairLayer?.ShowDeathIndicator(position);
                 __instance.DeathIndicatorShown = true;
+                t.indicatorShown = true;
             }
 
             APILogger.Debug($"Melee Damage: {num}");
@@ -252,8 +259,11 @@ namespace KillIndicatorFix.Patches {
         public static void ShowDeathIndicator(Dam_EnemyDamageLimb __instance, bool hitWeakspot, bool willDie, Vector3 position, bool hitArmor) {
             EnemyAgent owner = __instance.m_base.Owner;
 
+
+            ushort id = owner.GlobalID;
+
             // Only call if GuiManager.CrosshairLayer.ShowDeathIndicator(position); is going to get called (condition is taken from source)
-            if (willDie && !__instance.m_base.DeathIndicatorShown) {
+            if (willDie && !__instance.m_base.DeathIndicatorShown && (!taggedEnemies.TryGetValue(id, out Tag? t) || !t.indicatorShown)) {
                 PlayerAgent player = PlayerManager.GetLocalPlayerAgent();
                 ItemEquippable item = player.Inventory.WieldedItem;
                 if (sentryShot && PlayerBackpackManager.TryGetItem(player.Owner, InventorySlot.GearClass, out BackpackItem bpItem)) {
